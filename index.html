@@ -630,6 +630,58 @@ body {
   color: var(--text);
 }
 
+.detail-note-section {
+  margin-top: 8px;
+  background: #F9FAFB;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.detail-note-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.detail-note-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-note-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  word-break: break-all;
+}
+
+.detail-note-input {
+  flex: 1;
+  border: 2px solid var(--primary);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  font-family: inherit;
+}
+
+.detail-note-edit-btn,
+.detail-note-save-btn {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.detail-note-edit-btn { background: #EEF2FF; color: var(--primary); }
+.detail-note-save-btn { background: var(--primary); color: #fff; }
+
 /* Tabs */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -788,6 +840,15 @@ body {
       <div class="detail-amount" id="detailAmount"></div>
     </div>
     <div class="detail-grid" id="detailGrid"></div>
+    <div class="detail-note-section">
+      <div class="detail-note-label">备注</div>
+      <div class="detail-note-row">
+        <span class="detail-note-text" id="detailNoteText"></span>
+        <input type="text" class="detail-note-input hidden" id="detailNoteInput" maxlength="30">
+        <button class="detail-note-edit-btn" id="detailNoteEditBtn" onclick="startEditNote()">✎</button>
+        <button class="detail-note-save-btn hidden" id="detailNoteSaveBtn" onclick="saveNote()">保存</button>
+      </div>
+    </div>
     <button class="btn-cancel" style="width:100%;margin-top:8px" onclick="closeDetailModal()">关闭</button>
   </div>
 </div>
@@ -1206,10 +1267,13 @@ function confirmDelete() {
 }
 
 // ===== 交易详情弹窗 =====
+let detailTxId = null;
+
 function openDetailModal(id) {
   const transactions = getTransactions();
   const t = transactions.find(tx => tx.id === id);
   if (!t) return;
+  detailTxId = id;
 
   const cats = t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const cat = cats.find(c => c.id === t.category) || cats[cats.length - 1];
@@ -1252,16 +1316,49 @@ function openDetailModal(id) {
       <div class="detail-item-label">时间</div>
       <div class="detail-item-value">${fullTime}</div>
     </div>
-    <div class="detail-item full">
-      <div class="detail-item-label">备注</div>
-      <div class="detail-item-value">${t.note || '无'}</div>
-    </div>
   `;
+
+  // 填充备注
+  document.getElementById('detailNoteText').textContent = t.note || '无';
+  document.getElementById('detailNoteInput').value = t.note || '';
+  document.getElementById('detailNoteInput').classList.add('hidden');
+  document.getElementById('detailNoteText').classList.remove('hidden');
+  document.getElementById('detailNoteEditBtn').classList.remove('hidden');
+  document.getElementById('detailNoteSaveBtn').classList.add('hidden');
 
   document.getElementById('detailModal').classList.remove('hidden');
 }
 
+function startEditNote() {
+  document.getElementById('detailNoteText').classList.add('hidden');
+  document.getElementById('detailNoteEditBtn').classList.add('hidden');
+  document.getElementById('detailNoteInput').classList.remove('hidden');
+  document.getElementById('detailNoteSaveBtn').classList.remove('hidden');
+  document.getElementById('detailNoteInput').focus();
+}
+
+function saveNote() {
+  const newNote = document.getElementById('detailNoteInput').value.trim();
+  let transactions = getTransactions();
+  const t = transactions.find(tx => tx.id === detailTxId);
+  if (!t) return;
+
+  t.note = newNote;
+  saveTransactions(transactions);
+
+  // 更新显示
+  document.getElementById('detailNoteText').textContent = newNote || '无';
+  document.getElementById('detailNoteInput').classList.add('hidden');
+  document.getElementById('detailNoteText').classList.remove('hidden');
+  document.getElementById('detailNoteEditBtn').classList.remove('hidden');
+  document.getElementById('detailNoteSaveBtn').classList.add('hidden');
+
+  // 刷新记录列表
+  renderTransactionList();
+}
+
 function closeDetailModal() {
+  detailTxId = null;
   document.getElementById('detailModal').classList.add('hidden');
 }
 
@@ -1489,12 +1586,15 @@ function handleVoiceResult(text) {
 
   resultDiv.classList.add('show');
   detailDiv.innerHTML = `
-    <strong>识别结果：</strong>"${text}"<br>
+    <strong>已自动记账：</strong>"${text}"<br>
     <div style="margin-top:4px">${tags.join(' ')}</div>
   `;
 
-  // 3秒后自动隐藏结果
-  setTimeout(() => resultDiv.classList.remove('show'), 5000);
+  // 自动提交记账
+  addTransaction();
+
+  // 3秒后隐藏结果
+  setTimeout(() => resultDiv.classList.remove('show'), 3000);
 }
 
 // 初始化语音识别
