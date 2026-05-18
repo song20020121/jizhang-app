@@ -1,4 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="128" fill="#4F46E5"/>
-  <text x="256" y="340" text-anchor="middle" font-size="320" font-family="sans-serif">📒</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="50%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#A5B4FC"/>
+      <stop offset="100%" stop-color="#C4B5FD"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角背景 -->
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+
+  <!-- 装饰圆环 -->
+  <circle cx="390" cy="160" r="180" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="40"/>
+  <circle cx="140" cy="380" r="120" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="30"/>
+
+  <!-- 白色卡片底板 -->
+  <rect x="128" y="130" width="256" height="280" rx="24" fill="white" opacity="0.15"/>
+
+  <!-- 柱状图 - 三根柱子 -->
+  <!-- 柱子1 (左, 最矮) -->
+  <rect x="160" y="330" width="42" height="50" rx="8" fill="white" opacity="0.7"/>
+  <!-- 柱子2 (中, 最高) -->
+  <rect x="218" y="280" width="42" height="100" rx="8" fill="white"/>
+  <!-- 柱子3 (右, 中等) -->
+  <rect x="276" y="305" width="42" height="75" rx="8" fill="white" opacity="0.85"/>
+
+  <!-- 折线趋势 -->
+  <polyline points="181,340 239,280 297,315 355,240"
+    fill="none" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 折线节点 -->
+  <circle cx="181" cy="340" r="10" fill="white"/>
+  <circle cx="239" cy="280" r="12" fill="white"/>
+  <circle cx="297" cy="315" r="10" fill="white"/>
+  <circle cx="355" cy="240" r="10" fill="white"/>
+
+  <!-- 底部金额数字暗示 -->
+  <rect x="195" y="390" width="24" height="6" rx="3" fill="white" opacity="0.3"/>
+  <rect x="253" y="390" width="24" height="6" rx="3" fill="white" opacity="0.5"/>
+  <rect x="311" y="390" width="24" height="6" rx="3" fill="white" opacity="0.4"/>
 </svg>
