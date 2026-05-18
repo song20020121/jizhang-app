@@ -572,6 +572,64 @@ body {
 .btn-cancel { background: #F3F4F6; color: var(--text); }
 .btn-confirm { background: var(--danger); color: #fff; }
 
+/* Detail Modal */
+.detail-modal { text-align: left; }
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.detail-icon {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.detail-icon.expense { background: #FEE2E2; }
+.detail-icon.income { background: #D1FAE5; }
+
+.detail-amount {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.detail-amount.expense { color: var(--danger); }
+.detail-amount.income { color: var(--success); }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.detail-item {
+  background: #F9FAFB;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.detail-item.full { grid-column: 1 / -1; }
+
+.detail-item-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.detail-item-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* Tabs */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -720,6 +778,18 @@ body {
       <span class="icon">💰</span>预算
     </button>
   </nav>
+</div>
+
+<!-- Transaction Detail Modal -->
+<div class="modal-overlay hidden" id="detailModal">
+  <div class="modal detail-modal">
+    <div class="detail-header">
+      <div class="detail-icon" id="detailIcon"></div>
+      <div class="detail-amount" id="detailAmount"></div>
+    </div>
+    <div class="detail-grid" id="detailGrid"></div>
+    <button class="btn-cancel" style="width:100%;margin-top:8px" onclick="closeDetailModal()">关闭</button>
+  </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -943,14 +1013,14 @@ function renderTransactionList() {
     const sign = t.type === 'expense' ? '-' : '+';
 
     return `
-      <div class="transaction-item" onclick="event.stopPropagation();">
+      <div class="transaction-item" onclick="openDetailModal('${t.id}')">
         <div class="tx-icon ${t.type}">${cat.icon}</div>
         <div class="tx-info">
           <div class="tx-category">${cat.name}${pm ? `<span class="tx-payment ${pm.cssClass}">${pm.icon} ${pm.name}</span>` : ''}</div>
           <div class="tx-note">${t.note || dateStr}</div>
         </div>
         <div class="tx-amount ${t.type}">${sign}¥${t.amount.toFixed(2)}</div>
-        <button class="tx-delete" onclick="openDeleteModal('${t.id}')">✕</button>
+        <button class="tx-delete" onclick="openDeleteModal('${t.id}');event.stopPropagation();">✕</button>
       </div>`;
   }).join('');
 }
@@ -1133,6 +1203,66 @@ function confirmDelete() {
   closeDeleteModal();
   renderAll();
   updateHeader();
+}
+
+// ===== 交易详情弹窗 =====
+function openDetailModal(id) {
+  const transactions = getTransactions();
+  const t = transactions.find(tx => tx.id === id);
+  if (!t) return;
+
+  const cats = t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  const cat = cats.find(c => c.id === t.category) || cats[cats.length - 1];
+  const pm = PAYMENT_METHODS.find(p => p.id === t.paymentMethod) || null;
+  const date = new Date(t.date);
+
+  const weekDay = ['日','一','二','三','四','五','六'][date.getDay()];
+  const fullDate = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 周${weekDay}`;
+  const fullTime = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}`;
+  const sign = t.type === 'expense' ? '-' : '+';
+  const typeLabel = t.type === 'expense' ? '支出' : '收入';
+
+  document.getElementById('detailIcon').innerHTML = cat.icon;
+  document.getElementById('detailIcon').className = `detail-icon ${t.type}`;
+  document.getElementById('detailAmount').textContent = `${sign}¥${t.amount.toFixed(2)}`;
+  document.getElementById('detailAmount').className = `detail-amount ${t.type}`;
+
+  document.getElementById('detailGrid').innerHTML = `
+    <div class="detail-item">
+      <div class="detail-item-label">类型</div>
+      <div class="detail-item-value" style="color:${t.type === 'expense' ? 'var(--danger)' : 'var(--success)'}">${typeLabel}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-item-label">分类</div>
+      <div class="detail-item-value">${cat.name}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-item-label">支付方式</div>
+      <div class="detail-item-value">${pm ? pm.icon + ' ' + pm.name : '未知'}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-item-label">金额</div>
+      <div class="detail-item-value">${sign}¥${t.amount.toFixed(2)}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-item-label">日期</div>
+      <div class="detail-item-value">${fullDate}</div>
+    </div>
+    <div class="detail-item">
+      <div class="detail-item-label">时间</div>
+      <div class="detail-item-value">${fullTime}</div>
+    </div>
+    <div class="detail-item full">
+      <div class="detail-item-label">备注</div>
+      <div class="detail-item-value">${t.note || '无'}</div>
+    </div>
+  `;
+
+  document.getElementById('detailModal').classList.remove('hidden');
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.add('hidden');
 }
 
 // ===== 语音输入 =====
