@@ -1718,37 +1718,46 @@ function detectCategory(text, type) {
   return 'other_expense';
 }
 
-function extractNote(text) {
+// 每个分类的关键词 → 只删除匹配分类的，不误伤其他内容
+const CAT_KEYWORDS = {
+  food: ['吃饭','吃了','吃顿','餐','餐饮','火锅','烧烤','外卖','食堂','馆子','奶茶','饮料','零食','早餐','午饭','晚饭','午餐','晚餐','宵夜','水果','菜','饭'],
+  transport: ['打车','坐车','地铁','公交','火车','高铁','飞机','出行','交通','加油','停车','滴滴','出租车','网约车','坐','乘'],
+  shopping: ['购物','买了','淘宝','京东','拼多多','衣服','鞋子','超市','商场','电器','数码','化妆品','包','买'],
+  entertainment: ['看电影','电影','游戏','唱歌','KTV','娱乐','旅游','演出','音乐会','酒吧','剧本杀','密室','玩'],
+  housing: ['房租','水电','物业','房贷','租金','网费','暖气','煤气','居住'],
+  communication: ['话费','流量','通讯','手机费','宽带','充话费','充'],
+  medical: ['看病','药','医院','挂号','体检','诊所','牙医','医疗'],
+  education: ['书','课','学费','培训','考试','报名','文具','学习'],
+  social: ['请客','聚会','礼金','随礼','送礼','约会','应酬','社交'],
+  salary: ['工资','薪水','发工资','薪资'],
+  parttime: ['兼职','副业','外快'],
+  investment: ['投资','理财','股票','基金','利息'],
+  bonus: ['奖金','年终奖','年终','红包'],
+  refund: ['退款','退货','返还'],
+};
+
+function extractNote(text, category) {
   let note = text;
 
-  // 去掉金额部分
-  note = note.replace(/\d+\.?\d*\s*(?:块|元|块钱|毛|角|分)/g, '');
-  note = note.replace(/[零一二两三四五六七八九十百千万]+\s*(?:块|元|块钱)/g, '');
+  // 1. 删除金额片段（数字+货币单位）
+  note = note.replace(/(\d+\.?\d*)\s*[块元块钱毛角分]+/g, '');
+  note = note.replace(/[零一二两三四五六七八九十百千万亿]+\s*[块元块钱]+/g, '');
 
-  // 去掉支付方式关键词
-  note = note.replace(/支付宝|微信|银行卡|刷卡|银行卡支付/g, '');
+  // 2. 删除支付方式
+  note = note.replace(/用支付宝支付|用微信支付|刷银行卡|支付宝支付|微信支付|银行卡支付|用支付宝|用微信|支付宝|微信|银行卡|刷卡/g, '');
 
-  // 去掉收支类型关键词
-  note = note.replace(/收入|工资|赚了|收到|进账|奖金|兼职|退款|报销|花了|花了钱|付了|支付/g, '');
+  // 3. 删除收支引导词
+  note = note.replace(/花了钱|花了|付了钱|付了|支付了|消费了|用了钱|用了|支出|收入|进账|赚了钱|赚了|收到/g, '');
 
-  // 去掉分类关键词
-  const allCatKeywords = [
-    '饭','餐','吃','外卖','火锅','烧烤','奶茶','饮料','水果','菜','零食','早餐','午饭','晚饭','午餐','晚餐','宵夜','食堂','馆子',
-    '打车','坐车','地铁','公交','火车','高铁','飞机','出行','交通','加油','停车','滴滴','出租车','网约车',
-    '买','购物','淘宝','京东','拼多多','衣服','鞋子','包','化妆品','数码','电器','超市','商场',
-    '玩','电影','游戏','唱歌','KTV','娱乐','旅游','演出','音乐会','酒吧','剧本杀','密室',
-    '房租','水电','物业','房贷','租金','网费','暖气','煤气',
-    '话费','流量','通讯','手机费','宽带',
-    '看病','药','医院','挂号','体检','诊所','牙医',
-    '书','课','学费','培训','考试','报名','文具',
-    '请客','聚会','礼金','随礼','送礼','约会','应酬','红包',
-    '薪水','副业','外快','投资','理财','股票','基金','利息','年终','退货','返还',
-  ];
-  for (const kw of allCatKeywords) {
+  // 4. 只删除匹配分类的关键词（不再全删）
+  const keywords = CAT_KEYWORDS[category] || [];
+  // 按关键词长度降序排列，先匹配长的避免部分匹配问题
+  const sorted = keywords.sort((a, b) => b.length - a.length);
+  for (const kw of sorted) {
     note = note.replace(new RegExp(kw, 'g'), '');
   }
 
-  // 清理多余空格和标点
+  // 5. 清理多余空格和标点，保留有意义的中文
   note = note.replace(/[，,。\.！!？?\s]+/g, ' ').trim();
 
   return note;
@@ -1763,7 +1772,7 @@ function parseVoiceText(text) {
   const typeName = type === 'income' ? '收入' : '支出';
   const cats = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const catName = cats.find(c => c.id === category)?.name || '其他';
-  const note = extractNote(text);
+  const note = extractNote(text, category);
 
   return { amount, type, category, paymentMethod, catName, typeName, paymentMethodName, note, raw: text };
 }
