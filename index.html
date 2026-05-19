@@ -227,6 +227,35 @@ body {
 .payment-chip.wechat.selected { border-color: #07C160; background: #E6F9EF; color: #07C160; }
 .payment-chip.bankcard.selected { border-color: #F59E0B; background: #FFF7E6; color: #D97706; }
 
+/* Date Input */
+.date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.date-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.date-input {
+  flex: 1;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  transition: border 0.2s;
+}
+
+.date-input:focus { border-color: var(--primary); }
+
 .tx-payment {
   font-size: 11px;
   padding: 2px 8px;
@@ -683,6 +712,20 @@ body {
 .detail-note-edit-btn { background: #EEF2FF; color: var(--primary); }
 .detail-note-save-btn { background: var(--primary); color: #fff; }
 
+.detail-edit-toggle {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--primary);
+  background: #EEF2FF;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.detail-edit-toggle:active { background: var(--primary); color: #fff; }
+
 /* Tabs */
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -768,6 +811,10 @@ body {
           <span class="payment-label">支付方式</span>
           <div class="payment-chips" id="paymentChips"></div>
         </div>
+        <div class="date-row">
+          <span class="date-label">日期</span>
+          <input type="date" class="date-input" id="dateInput">
+        </div>
         <input type="text" class="note-input" id="noteInput" placeholder="添加备注（可选）" maxlength="30">
         <div class="voice-row">
           <button class="voice-btn" id="voiceBtn" onclick="startVoiceInput()">
@@ -836,18 +883,47 @@ body {
 <!-- Transaction Detail Modal -->
 <div class="modal-overlay hidden" id="detailModal">
   <div class="modal detail-modal">
-    <div class="detail-header">
-      <div class="detail-icon" id="detailIcon"></div>
-      <div class="detail-amount" id="detailAmount"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-weight:600;color:var(--text)">记录详情</span>
+      <button class="detail-edit-toggle" id="detailEditToggle" onclick="toggleEditMode()">✎ 编辑</button>
     </div>
-    <div class="detail-grid" id="detailGrid"></div>
-    <div class="detail-note-section">
-      <div class="detail-note-label">备注</div>
-      <div class="detail-note-row">
-        <span class="detail-note-text" id="detailNoteText"></span>
-        <input type="text" class="detail-note-input hidden" id="detailNoteInput" maxlength="30">
-        <button class="detail-note-edit-btn" id="detailNoteEditBtn" onclick="startEditNote()">✎</button>
-        <button class="detail-note-save-btn hidden" id="detailNoteSaveBtn" onclick="saveNote()">保存</button>
+    <!-- 只读模式 -->
+    <div id="detailViewMode">
+      <div class="detail-header">
+        <div class="detail-icon" id="detailIcon"></div>
+        <div class="detail-amount" id="detailAmount"></div>
+      </div>
+      <div class="detail-grid" id="detailGrid"></div>
+      <div class="detail-note-section">
+        <div class="detail-note-label">备注</div>
+        <div class="detail-note-row">
+          <span class="detail-note-text" id="detailNoteText"></span>
+          <button class="detail-note-edit-btn" onclick="startEditNote()">✎</button>
+        </div>
+      </div>
+    </div>
+    <!-- 编辑模式 -->
+    <div id="detailEditMode" class="hidden">
+      <div class="amount-input-row" style="margin-bottom:12px">
+        <input type="number" id="detailEditAmount" step="0.01" min="0.01" inputmode="decimal">
+        <div class="type-toggle">
+          <button class="type-btn expense" id="detailEditTypeExpense" onclick="detailEditSetType('expense')">支出</button>
+          <button class="type-btn income" id="detailEditTypeIncome" onclick="detailEditSetType('income')">收入</button>
+        </div>
+      </div>
+      <div class="category-grid" id="detailEditCategoryGrid" style="margin-bottom:12px"></div>
+      <div class="payment-row" style="margin-bottom:12px">
+        <span class="payment-label">支付</span>
+        <div class="payment-chips" id="detailEditPaymentChips"></div>
+      </div>
+      <div class="date-row" style="margin-bottom:12px">
+        <span class="date-label">日期</span>
+        <input type="date" class="date-input" id="detailEditDate">
+      </div>
+      <input type="text" class="note-input" id="detailEditNote" placeholder="备注（可选）" maxlength="30" style="margin-bottom:12px">
+      <div style="display:flex;gap:10px">
+        <button class="btn-cancel" style="flex:1" onclick="toggleEditMode()">取消</button>
+        <button class="btn-confirm" style="flex:1;background:var(--primary)" onclick="saveDetailEdit()">保存修改</button>
       </div>
     </div>
     <button class="btn-cancel" style="width:100%;margin-top:8px" onclick="closeDetailModal()">关闭</button>
@@ -931,6 +1007,11 @@ function saveBudget(data) {
 // ===== 初始化 =====
 function init() {
   monthlyBudget = getBudget();
+  // 日期选择器默认今天
+  const now = new Date();
+  document.getElementById('dateInput').value = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0');
   renderCategoryGrid();
   renderPaymentChips();
   renderAll();
@@ -995,6 +1076,11 @@ function addTransaction() {
     return;
   }
 
+  const dateInput = document.getElementById('dateInput');
+  const chosenDate = dateInput.value ? new Date(dateInput.value + 'T00:00:00') : new Date();
+  const now = new Date();
+  chosenDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+
   const transaction = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     type: currentType,
@@ -1002,7 +1088,7 @@ function addTransaction() {
     paymentMethod: currentPayment,
     amount: Math.round(amount * 100) / 100,
     note: noteEl.value.trim(),
-    date: new Date().toISOString(),
+    date: chosenDate.toISOString(),
   };
 
   const transactions = getTransactions();
@@ -1269,12 +1355,20 @@ function confirmDelete() {
 
 // ===== 交易详情弹窗 =====
 let detailTxId = null;
+let detailEditType = 'expense';
+let detailEditCat = 'food';
+let detailEditPay = 'alipay';
 
 function openDetailModal(id) {
   const transactions = getTransactions();
   const t = transactions.find(tx => tx.id === id);
   if (!t) return;
   detailTxId = id;
+
+  // 编辑状态初始化
+  detailEditType = t.type;
+  detailEditCat = t.category;
+  detailEditPay = t.paymentMethod || 'alipay';
 
   const cats = t.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   const cat = cats.find(c => c.id === t.category) || cats[cats.length - 1];
@@ -1287,6 +1381,7 @@ function openDetailModal(id) {
   const sign = t.type === 'expense' ? '-' : '+';
   const typeLabel = t.type === 'expense' ? '支出' : '收入';
 
+  // 只读模式
   document.getElementById('detailIcon').innerHTML = cat.icon;
   document.getElementById('detailIcon').className = `detail-icon ${t.type}`;
   document.getElementById('detailAmount').textContent = `${sign}¥${t.amount.toFixed(2)}`;
@@ -1319,43 +1414,152 @@ function openDetailModal(id) {
     </div>
   `;
 
-  // 填充备注
   document.getElementById('detailNoteText').textContent = t.note || '无';
-  document.getElementById('detailNoteInput').value = t.note || '';
-  document.getElementById('detailNoteInput').classList.add('hidden');
-  document.getElementById('detailNoteText').classList.remove('hidden');
-  document.getElementById('detailNoteEditBtn').classList.remove('hidden');
-  document.getElementById('detailNoteSaveBtn').classList.add('hidden');
+
+  // 编辑模式数据填充
+  document.getElementById('detailEditAmount').value = t.amount;
+  document.getElementById('detailEditDate').value = date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2,'0') + '-' +
+    String(date.getDate()).padStart(2,'0');
+  document.getElementById('detailEditNote').value = t.note || '';
+
+  // 确保显示查看模式
+  document.getElementById('detailViewMode').classList.remove('hidden');
+  document.getElementById('detailEditMode').classList.add('hidden');
+  document.getElementById('detailEditToggle').textContent = '✎ 编辑';
 
   document.getElementById('detailModal').classList.remove('hidden');
+  detailEditSetType(t.type);
+  renderDetailEditCategories();
+  renderDetailEditPayments();
 }
 
 function startEditNote() {
-  document.getElementById('detailNoteText').classList.add('hidden');
-  document.getElementById('detailNoteEditBtn').classList.add('hidden');
-  document.getElementById('detailNoteInput').classList.remove('hidden');
-  document.getElementById('detailNoteSaveBtn').classList.remove('hidden');
-  document.getElementById('detailNoteInput').focus();
+  // 切换到编辑模式（备注快速编辑入口）
+  toggleEditMode();
 }
 
-function saveNote() {
-  const newNote = document.getElementById('detailNoteInput').value.trim();
+function toggleEditMode() {
+  const viewMode = document.getElementById('detailViewMode');
+  const editMode = document.getElementById('detailEditMode');
+  const toggleBtn = document.getElementById('detailEditToggle');
+
+  if (editMode.classList.contains('hidden')) {
+    // 切换到编辑模式
+    viewMode.classList.add('hidden');
+    editMode.classList.remove('hidden');
+    toggleBtn.textContent = '取消编辑';
+    // 重新拉取最新数据
+    const transactions = getTransactions();
+    const t = transactions.find(tx => tx.id === detailTxId);
+    if (t) {
+      detailEditType = t.type;
+      detailEditCat = t.category;
+      detailEditPay = t.paymentMethod || 'alipay';
+      document.getElementById('detailEditAmount').value = t.amount;
+      document.getElementById('detailEditNote').value = t.note || '';
+      detailEditSetType(t.type);
+      renderDetailEditCategories();
+      renderDetailEditPayments();
+    }
+  } else {
+    // 切换回查看模式
+    editMode.classList.add('hidden');
+    viewMode.classList.remove('hidden');
+    toggleBtn.textContent = '✎ 编辑';
+  }
+}
+
+function renderDetailEditCategories() {
+  const grid = document.getElementById('detailEditCategoryGrid');
+  const cats = detailEditType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  grid.innerHTML = cats.map(c => `
+    <div class="category-item${c.id === detailEditCat ? ' selected' : ''}"
+         onclick="detailEditSelectCat('${c.id}')" data-cat="${c.id}">
+      <span class="icon">${c.icon}</span>
+      <span class="name">${c.name}</span>
+    </div>
+  `).join('');
+  // 确保当前选中的分类属于当前类型
+  if (!cats.find(c => c.id === detailEditCat)) {
+    detailEditCat = cats[0].id;
+  }
+}
+
+function detailEditSelectCat(id) {
+  detailEditCat = id;
+  document.querySelectorAll('#detailEditCategoryGrid .category-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.cat === id);
+  });
+}
+
+function renderDetailEditPayments() {
+  const container = document.getElementById('detailEditPaymentChips');
+  container.innerHTML = PAYMENT_METHODS.map(p => `
+    <button class="payment-chip ${p.cssClass}${p.id === detailEditPay ? ' selected' : ''}"
+            onclick="detailEditSelectPay('${p.id}')" data-payment="${p.id}">
+      <span class="p-icon">${p.icon}</span>${p.name}
+    </button>
+  `).join('');
+}
+
+function detailEditSelectPay(id) {
+  detailEditPay = id;
+  document.querySelectorAll('#detailEditPaymentChips .payment-chip').forEach(el => {
+    el.classList.toggle('selected', el.dataset.payment === id);
+  });
+}
+
+function detailEditSetType(type) {
+  detailEditType = type;
+  if (!detailEditCat) {
+    detailEditCat = (type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES)[0].id;
+  }
+  const expBtn = document.getElementById('detailEditTypeExpense');
+  const incBtn = document.getElementById('detailEditTypeIncome');
+  expBtn.classList.toggle('active', type === 'expense');
+  incBtn.classList.toggle('active', type === 'income');
+  renderDetailEditCategories();
+}
+
+function saveDetailEdit() {
+  const amount = parseFloat(document.getElementById('detailEditAmount').value);
+  if (isNaN(amount) || amount <= 0) {
+    document.getElementById('detailEditAmount').style.borderColor = '#EF4444';
+    setTimeout(() => document.getElementById('detailEditAmount').style.borderColor = '', 1500);
+    return;
+  }
+
   let transactions = getTransactions();
   const t = transactions.find(tx => tx.id === detailTxId);
   if (!t) return;
 
-  t.note = newNote;
+  const dateInput = document.getElementById('detailEditDate');
+  if (dateInput.value) {
+    const parts = dateInput.value.split('-');
+    const oldDate = new Date(t.date);
+    const newDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
+      oldDate.getHours(), oldDate.getMinutes(), oldDate.getSeconds());
+    t.date = newDate.toISOString();
+  }
+
+  t.type = detailEditType;
+  t.category = detailEditCat;
+  t.paymentMethod = detailEditPay;
+  t.amount = Math.round(amount * 100) / 100;
+  t.note = document.getElementById('detailEditNote').value.trim();
+
   saveTransactions(transactions);
 
-  // 更新显示
-  document.getElementById('detailNoteText').textContent = newNote || '无';
-  document.getElementById('detailNoteInput').classList.add('hidden');
-  document.getElementById('detailNoteText').classList.remove('hidden');
-  document.getElementById('detailNoteEditBtn').classList.remove('hidden');
-  document.getElementById('detailNoteSaveBtn').classList.add('hidden');
-
-  // 刷新记录列表
+  // 刷新列表和详情
   renderTransactionList();
+  updateHeader();
+  openDetailModal(detailTxId);
+}
+
+function saveNote() {
+  // 保持兼容：切换到编辑模式
+  toggleEditMode();
 }
 
 function closeDetailModal() {
